@@ -1,14 +1,48 @@
 #include "imports/stdlib.fc";
 
-() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
-    slice cs = in_msg_full.begin_parse();
-    int flags = cs~load_uint(4);
-    slice sender_address = cs~load_msg_addr();
-
-    set_data(begin_cell().store_slice(sender_address).end_cell());
+(int, slice, slice) load_data() inline {
+  slice ds = get_data().begin_parse();
+  return (ds~load_uint(32), ds~load_msg_addr(), ds~load_msg_addr());
 }
 
-slice get_the_latest_sender() method_id {
-    slice ds = get_data().begin_parse();
-    return ds~load_msg_addr();
+() save_data(int number, slice address, slice owner_address) inline {
+  set_data(begin_cell()
+    .store_uint(number, 32)
+    .store_slice(address)
+    .store_slice(owner_address)
+    .end_cell());
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+  slice cs = in_msg_full.begin_parse();
+  int flags = cs~load_uint(4);
+  slice sender_address = cs~load_msg_addr();
+
+  ;; Загружаем текущие данные
+  var (current_number, stored_address, owner_address) = load_data();
+  
+  ;; Обновляем только если отправитель - владелец
+  if (sender_address.preload_uint(2) == owner_address.preload_uint(2) && 
+      sender_address.slice_bits() == owner_address.slice_bits()) {
+    ;; Владелец может обновлять данные
+    if (in_msg_body.slice_empty?() == 0) {
+      int new_number = in_msg_body~load_uint(32);
+      save_data(new_number, stored_address, owner_address);
+    }
+  }
+}
+
+slice get_owner_address() method_id {
+  var (_, _, owner_address) = load_data();
+  return owner_address;
+}
+
+slice get_stored_address() method_id {
+  var (_, stored_address, _) = load_data();
+  return stored_address;
+}
+
+int get_number() method_id {
+  var (number, _, _) = load_data();
+  return number;
 }

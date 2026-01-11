@@ -7,7 +7,7 @@ export async function run(provider: NetworkProvider) {
   const initState = {
     number: 0,
     address: address('kQDPKoik0b-fi0pGukkc3GjzLgtTmh0118kizMWh4nVo_GpG'),
-    owner_address: address('kQDPKoik0b-fi0pGukkc3GjzLgtTmh0118kizMWh4nVo_GpG'),
+    owner_address: address('0QA-8Yr0ccwasmoDnh9kbMz0HibyVj_IfXm6SN6JJ1bzVnff'),
   };
   const openedGoGoTon = provider.open(
     GoGoTon.createFromConfig(initState, contract),

@@ -3,7 +3,6 @@ import {
   beginCell,
   Cell,
   Contract,
-  ContractABI,
   contractAddress,
   ContractProvider,
   Sender,
@@ -17,15 +16,17 @@ export type GoGoTonConfig = {
 };
 
 export function goGoTonConfigToCell(config: GoGoTonConfig): Cell {
-  return beginCell().endCell();
+  return beginCell()
+    .storeUint(config.number, 32)
+    .storeAddress(config.address)
+    .storeAddress(config.owner_address)
+    .endCell();
 }
 
 export class GoGoTon implements Contract {
-  abi: ContractABI = { name: 'GoGoTon' };
-
   constructor(
     readonly address: Address,
-    readonly init?: { code: Cell; data: Cell },
+    readonly init?: { code: Cell; data: Cell }
   ) {}
 
   static createFromAddress(address: Address) {
@@ -43,6 +44,26 @@ export class GoGoTon implements Contract {
       value,
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell().endCell(),
+    });
+  }
+
+  async getOwnerAddress(provider: ContractProvider): Promise<Address> {
+    const result = await provider.get('get_owner_address', []);
+    return result.stack.readAddress();
+  }
+
+  async getNumber(provider: ContractProvider): Promise<number> {
+    const result = await provider.get('get_number', []);
+    return result.stack.readNumber();
+  }
+
+  async updateNumber(provider: ContractProvider, via: Sender, value: bigint, newNumber: number) {
+    await provider.internal(via, {
+      value,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell()
+        .storeUint(newNumber, 32)
+        .endCell(),
     });
   }
 }
