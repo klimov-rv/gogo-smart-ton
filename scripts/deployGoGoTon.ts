@@ -4,9 +4,9 @@ import { compile, NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
   const contract = await compile('GoGoTon');
-  
+
   const myWallet = Address.parse(
-    '8Yr0ccwasmoDnh9kbMz0HibyVj_IfXm6SN6JJ1bzVnff',
+    '0QA-8Yr0ccwasmoDnh9kbMz0HibyVj_IfXm6SN6JJ1bzVnff',
   );
 
   const initState: GoGoTonConfig = {
