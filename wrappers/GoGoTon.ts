@@ -26,7 +26,7 @@ export function goGoTonConfigToCell(config: GoGoTonConfig): Cell {
 export class GoGoTon implements Contract {
   constructor(
     readonly address: Address,
-    readonly init?: { code: Cell; data: Cell }
+    readonly init?: { code: Cell; data: Cell },
   ) {}
 
   static createFromAddress(address: Address) {
@@ -39,6 +39,7 @@ export class GoGoTon implements Contract {
     return new GoGoTon(contractAddress(workchain, init), init);
   }
 
+  // Деплой
   async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
     await provider.internal(via, {
       value,
@@ -47,6 +48,7 @@ export class GoGoTon implements Contract {
     });
   }
 
+  // Операции
   async sendIncrement(provider: ContractProvider, via: Sender, value: bigint) {
     await provider.internal(via, {
       value,
@@ -71,7 +73,7 @@ export class GoGoTon implements Contract {
     provider: ContractProvider,
     via: Sender,
     value: bigint,
-    withdrawAmount: bigint
+    withdrawAmount: bigint,
   ) {
     await provider.internal(via, {
       value,
@@ -83,6 +85,7 @@ export class GoGoTon implements Contract {
     });
   }
 
+  // Геттеры
   async getContractData(provider: ContractProvider) {
     const result = await provider.get('get_contract_storage_data', []);
     return {
@@ -105,5 +108,20 @@ export class GoGoTon implements Contract {
   async getRecentSender(provider: ContractProvider): Promise<Address> {
     const result = await provider.get('get_recent_sender', []);
     return result.stack.readAddress();
+  }
+
+  async getContractBalance(provider: ContractProvider): Promise<bigint> {
+    const result = await provider.get('get_contract_balance', []);
+    return result.stack.readBigNumber(); // Используем readBigNumber для баланса
+  }
+
+  async getFullContractInfo(provider: ContractProvider) {
+    const result = await provider.get('get_full_contract_info', []);
+    return {
+      balance: result.stack.readBigNumber(),
+      counter: result.stack.readNumber(),
+      recentSender: result.stack.readAddress(),
+      owner: result.stack.readAddress(),
+    };
   }
 }

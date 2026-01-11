@@ -86,6 +86,11 @@ const const::min_tons_for_storage = 10000000; ;; 0.01 TON
   );
 }
 
+(int) get_balance_info() method_id {
+  var [balance, extra] = get_balance();
+  return balance;
+}
+
 int get_counter() method_id {
   var (counter_value, _, _) = load_data();
   return counter_value;
@@ -99,4 +104,11 @@ slice get_recent_sender() method_id {
 slice get_owner() method_id {
   var (_, _, owner_address) = load_data();
   return owner_address;
+}
+
+;; Дополнительный геттер для полной информации
+(int, int, slice, slice) get_full_contract_info() method_id {
+  var [balance, _] = get_balance();
+  var (counter_value, recent_sender, owner_address) = load_data();
+  return (balance, counter_value, recent_sender, owner_address);
 }
