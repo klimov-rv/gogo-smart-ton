@@ -1,48 +1,102 @@
 #include "imports/stdlib.fc";
 
+const const::min_tons_for_storage = 10000000; ;; 0.01 TON
+
 (int, slice, slice) load_data() inline {
-  slice ds = get_data().begin_parse();
-  return (ds~load_uint(32), ds~load_msg_addr(), ds~load_msg_addr());
+  var ds = get_data().begin_parse();
+  return (
+    ds~load_uint(32), ;; counter_value
+    ds~load_msg_addr(), ;; the most recent sender
+    ds~load_msg_addr() ;; owner_address
+  );
 }
 
-() save_data(int number, slice address, slice owner_address) inline {
+() save_data(int counter_value, slice recent_sender, slice owner_address) impure inline {
   set_data(begin_cell()
-    .store_uint(number, 32)
-    .store_slice(address)
-    .store_slice(owner_address)
+    .store_uint(counter_value, 32) ;; counter_value
+    .store_slice(recent_sender) ;; the most recent sender
+    .store_slice(owner_address) ;; owner_address
     .end_cell());
 }
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+  ;; Разбираем сообщение
   slice cs = in_msg_full.begin_parse();
   int flags = cs~load_uint(4);
+  if (flags & 1) { cs~load_uint(1); } ;; skip extra currency
   slice sender_address = cs~load_msg_addr();
-
-  ;; Загружаем текущие данные
-  var (current_number, stored_address, owner_address) = load_data();
   
-  ;; Обновляем только если отправитель - владелец
-  if (sender_address.preload_uint(2) == owner_address.preload_uint(2) && 
-      sender_address.slice_bits() == owner_address.slice_bits()) {
-    ;; Владелец может обновлять данные
-    if (in_msg_body.slice_empty?() == 0) {
-      int new_number = in_msg_body~load_uint(32);
-      save_data(new_number, stored_address, owner_address);
+  ;; Загружаем текущие данные контракта
+  var (counter_value, recent_sender, owner_address) = load_data();
+  
+  ;; Проверяем есть ли тело сообщения
+  if (in_msg_body.slice_empty?() != -1) {
+    ;; Если есть тело - это операция
+    int op = in_msg_body~load_uint(32);
+    
+    if (op == 1) {
+      ;; Операция 1: инкремент счетчика
+      save_data(counter_value + 1, sender_address, owner_address);
+      return();
     }
+    
+    if (op == 2) {
+      ;; Операция 2: депозит (ничего не делаем, баланс увеличится автоматически)
+      ;; Можно просто обновить recent_sender
+      save_data(counter_value, sender_address, owner_address);
+      return();
+    }
+    
+    if (op == 3) {
+      ;; Операция 3: вывод средств (только для владельца)
+      throw_unless(103, equal_slices(sender_address, owner_address));
+      
+      int withdraw_amount = in_msg_body~load_coins();
+      throw_unless(104, msg_value >= const::min_tons_for_storage); ;; Проверяем что хватит на газ
+      
+      var [balance, extra] = get_balance();
+      throw_unless(105, balance >= withdraw_amount + const::min_tons_for_storage);
+      
+      int return_value = min(withdraw_amount, balance - const::min_tons_for_storage);
+      
+      ;; Отправляем TON обратно отправителю
+      var msg = begin_cell()
+        .store_uint(0x18, 6) ;; flags
+        .store_slice(sender_address)
+        .store_coins(return_value)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
+      
+      send_raw_message(msg.end_cell(), 1); ;; mode = 1 (отдельно платим за газ)
+      return();
+    }
+    
+    throw(777); ;; Неизвестная операция
+  } else {
+    ;; Если тело пустое - это обычный депозит (аналог op == 2)
+    save_data(counter_value, sender_address, owner_address);
   }
 }
 
-slice get_owner_address() method_id {
+(int, slice, slice) get_contract_storage_data() method_id {
+  var (counter_value, recent_sender, owner_address) = load_data();
+  return (
+    counter_value,
+    recent_sender,
+    owner_address
+  );
+}
+
+int get_counter() method_id {
+  var (counter_value, _, _) = load_data();
+  return counter_value;
+}
+
+slice get_recent_sender() method_id {
+  var (_, recent_sender, _) = load_data();
+  return recent_sender;
+}
+
+slice get_owner() method_id {
   var (_, _, owner_address) = load_data();
   return owner_address;
-}
-
-slice get_stored_address() method_id {
-  var (_, stored_address, _) = load_data();
-  return stored_address;
-}
-
-int get_number() method_id {
-  var (number, _, _) = load_data();
-  return number;
 }
