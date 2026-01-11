@@ -48,8 +48,6 @@ node scripts/deployGoGoTon.ts
 /wrappers        # TypeScript-обёртки
 /tests           # Тесты
 /scripts         # Скрипты для развёртывания
-README.md        # Описание проекта
-package.json
 ```
 
 Примеры использования
